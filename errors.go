@@ -10,8 +10,6 @@ var (
 	// ErrUnexpectedFormat is wrapped by the error returned when a file isn't
 	// a rounds file, or none of its rounds can be read.
 	ErrUnexpectedFormat = errors.New("expressentry: unexpected format")
-	// ErrNotImplemented is returned until the parser is in place.
-	ErrNotImplemented = errors.New("expressentry: not implemented")
 )
 
 // HTTPError is returned when a rounds file answers with a status other than
