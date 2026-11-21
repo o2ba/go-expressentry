@@ -2,6 +2,11 @@
 // rounds files. Timestamp and Day accept the usual variations (ordinal
 // suffixes, stray commas and spaces, a missing "UTC"); Repair reads the
 // known typos in old rounds that they reject. Every time is UTC.
+//
+// IRCC still types these by hand: rounds in 2026 have ordinals ("August
+// 31st"), double spaces and a missing "UTC", which Timestamp accepts. The
+// typos Repair handles all date from rounds 208 to 333 (2021 to January
+// 2025).
 package ircctime
 
 import (
