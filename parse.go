@@ -1,0 +1,195 @@
+package expressentry
+
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"slices"
+	"time"
+
+	"github.com/o2ba/go-expressentry/internal/clean"
+	"github.com/o2ba/go-expressentry/internal/raw"
+)
+
+// Parse reads the English and French rounds files. The English file says
+// which rounds exist; the French one only adds French text, matched by
+// round number. fr may be nil. If fr can't be read, the rounds still come
+// back with English text only and a [FrenchUnavailable] issue.
+//
+// The error wraps [ErrUnexpectedFormat] when en isn't a rounds file or none
+// of its rounds can be read.
+func Parse(en, fr []byte) (*Rounds, error) {
+	enFeed, err := raw.Parse(en)
+	if err != nil {
+		return nil, fmt.Errorf("%w: English file: %w", ErrUnexpectedFormat, err)
+	}
+	var p parser
+	french := map[string]raw.Round{}
+	if fr != nil {
+		frFeed, err := raw.Parse(fr)
+		if err != nil {
+			p.issue(Issue{Kind: FrenchUnavailable, Err: err})
+		} else {
+			for _, r := range frFeed.Rounds {
+				french[string(r.DrawNumber)] = r
+			}
+		}
+	}
+	return p.rounds(enFeed, french), nil
+}
+
+type parser struct {
+	issues []Issue
+}
+
+func (p *parser) issue(i Issue) {
+	p.issues = append(p.issues, i)
+}
+
+func (p *parser) rounds(en *raw.Feed, french map[string]raw.Round) *Rounds {
+	for _, u := range en.Unreadable {
+		p.issue(Issue{Kind: Unreadable, Round: RoundNumber(u.Number), Err: u.Err})
+	}
+
+	rounds := slices.Clone(en.Rounds)
+	slices.SortStableFunc(rounds, func(a, b raw.Round) int {
+		return clean.CompareRoundNumbers(string(a.DrawNumber), string(b.DrawNumber))
+	})
+
+	out := &Rounds{}
+	seen := map[string]bool{}
+	pools := map[Date]pooled{}
+	for _, r := range rounds {
+		n := string(r.DrawNumber)
+		switch {
+		case n == "":
+			p.issue(Issue{Kind: Unreadable, Field: "drawNumber", Err: errors.New("missing round number")})
+			continue
+		case seen[n]:
+			p.issue(Issue{Kind: Unreadable, Round: RoundNumber(n), Field: "drawNumber", Value: n, Err: errors.New("repeated round number")})
+			continue
+		}
+		seen[n] = true
+
+		d := p.draw(r, french[n])
+		if pool, ok := p.pool(r); ok {
+			d.PoolAsOf = pool.AsOf
+			p.keepPool(pools, n, r.DistributionAsOn, pool)
+		}
+		out.Draws = append(out.Draws, d)
+	}
+
+	slices.Reverse(out.Draws)
+	for _, k := range pools {
+		out.Pools = append(out.Pools, k.pool)
+	}
+	slices.SortFunc(out.Pools, func(a, b Pool) int {
+		switch {
+		case b.AsOf.Before(a.AsOf):
+			return -1
+		case a.AsOf.Before(b.AsOf):
+			return 1
+		}
+		return 0
+	})
+	out.Issues = p.issues
+	return out
+}
+
+func (p *parser) draw(en, fr raw.Round) Draw {
+	n := RoundNumber(en.DrawNumber)
+	d := Draw{
+		Number:      n,
+		Category:    Category(clean.Category(en.DrawName)),
+		Name:        Name{EN: en.DrawName, FR: fr.DrawName},
+		Invitations: int(en.DrawSize),
+		MinimumCRS:  int(en.DrawCRS),
+		Programs:    Name{EN: en.DrawText2, FR: fr.DrawText2},
+	}
+	if date, err := ParseDate(en.DrawDate); err == nil {
+		d.Date = date
+	} else {
+		p.issue(Issue{Kind: Invalid, Round: n, Field: "drawDate", Value: en.DrawDate, Err: err})
+	}
+	d.InvitedAt = p.timestamp(n, "drawDateTime", en.DrawDateTime, en.DrawDate)
+	d.TieBreak = p.timestamp(n, "drawCutOff", en.DrawCutOff, en.DrawDate)
+	return d
+}
+
+func (p *parser) timestamp(n RoundNumber, field, value, drawDate string) time.Time {
+	if value == "" {
+		return time.Time{}
+	}
+	if t, ok := clean.Timestamp(value); ok {
+		return t
+	}
+	if t, ok := clean.RecoverTimestamp(value, drawDate); ok {
+		p.issue(Issue{Kind: Repaired, Round: n, Field: field, Value: value})
+		return t
+	}
+	p.issue(Issue{Kind: Invalid, Round: n, Field: field, Value: value, Err: errors.New("not a time")})
+	return time.Time{}
+}
+
+// pool reads dd1..dd18. IRCC's order, highest scores first: dd1 601-1200,
+// dd2 501-600, dd3 451-500 split into dd4..dd8 (10 points each, 491-500
+// down to 451-460), dd9 401-450 split into dd10..dd14, dd15 351-400,
+// dd16 301-350, dd17 0-300, dd18 the total. Early rounds have a date but
+// no counts; they get no pool.
+func (p *parser) pool(r raw.Round) (Pool, bool) {
+	if r.DistributionAsOn == "" {
+		return Pool{}, false
+	}
+	day, ok := clean.Day(r.DistributionAsOn)
+	if !ok {
+		p.issue(Issue{Kind: Invalid, Round: RoundNumber(r.DrawNumber), Field: "drawDistributionAsOn", Value: r.DistributionAsOn, Err: errors.New("not a date")})
+		return Pool{}, false
+	}
+	dd := func(i int) int { return int(r.Distribution[i-1]) }
+	tens := func(first, top int) []Band {
+		out := make([]Band, 5)
+		for i := range out {
+			hi := top - 10*i
+			out[i] = Band{Min: hi - 9, Max: hi, Count: dd(first + i)}
+		}
+		return out
+	}
+	pool := Pool{
+		AsOf:  DateOf(day),
+		Total: dd(18),
+		Bands: []Band{
+			{Min: 601, Max: 1200, Count: dd(1)},
+			{Min: 501, Max: 600, Count: dd(2)},
+			{Min: 451, Max: 500, Count: dd(3), Bands: tens(4, 500)},
+			{Min: 401, Max: 450, Count: dd(9), Bands: tens(10, 450)},
+			{Min: 351, Max: 400, Count: dd(15)},
+			{Min: 301, Max: 350, Count: dd(16)},
+			{Min: 0, Max: 300, Count: dd(17)},
+		},
+	}
+	return pool, pool.Total != 0
+}
+
+type pooled struct {
+	round string
+	pool  Pool
+}
+
+// keepPool keeps the first round's snapshot for each date. Rounds arrive
+// oldest first, so a later round that disagrees is reported, not kept.
+func (p *parser) keepPool(pools map[Date]pooled, round, asOf string, pool Pool) {
+	first, ok := pools[pool.AsOf]
+	if !ok {
+		pools[pool.AsOf] = pooled{round: round, pool: pool}
+		return
+	}
+	if !reflect.DeepEqual(first.pool, pool) {
+		p.issue(Issue{
+			Kind:  PoolConflict,
+			Round: RoundNumber(round),
+			Field: "drawDistributionAsOn",
+			Value: asOf,
+			Err:   fmt.Errorf("pool differs from round %s's, which was kept", first.round),
+		})
+	}
+}
