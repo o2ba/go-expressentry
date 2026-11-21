@@ -1,11 +1,11 @@
-package clean
+package ircctime
 
 import (
 	"testing"
 	"time"
 )
 
-func TestRecoverTimestamp(t *testing.T) {
+func TestRepair(t *testing.T) {
 	for _, tc := range []struct {
 		round    string
 		value    string
@@ -25,21 +25,21 @@ func TestRecoverTimestamp(t *testing.T) {
 		{"12-hour midnight", "June 22, 2021 at 12:19:59 AM UTC", "2021-11-10", time.Date(2021, 6, 22, 0, 19, 59, 0, time.UTC)},
 		{"no year, previous year", "December 30 at 09:00:00 UTC", "2022-01-05", time.Date(2021, 12, 30, 9, 0, 0, 0, time.UTC)},
 	} {
-		got, ok := RecoverTimestamp(tc.value, tc.drawDate)
+		got, ok := Repair(tc.value, tc.drawDate)
 		if !ok || !got.Equal(tc.want) {
-			t.Errorf("round %s: RecoverTimestamp(%q) = %v, %v; want %v", tc.round, tc.value, got, ok, tc.want)
+			t.Errorf("round %s: Repair(%q) = %v, %v; want %v", tc.round, tc.value, got, ok, tc.want)
 		}
 	}
 }
 
-func TestRecoverTimestampGivesUp(t *testing.T) {
+func TestRepairGivesUp(t *testing.T) {
 	for _, tc := range []struct{ value, drawDate string }{
 		{"sometime", "2026-01-01"},
 		{"October 7 at 16:38:21 UTC", ""},
 		{"October 7 at 16:38:21 UTC", "soon"},
 	} {
-		if got, ok := RecoverTimestamp(tc.value, tc.drawDate); ok {
-			t.Errorf("RecoverTimestamp(%q, %q) = %v, want no time", tc.value, tc.drawDate, got)
+		if got, ok := Repair(tc.value, tc.drawDate); ok {
+			t.Errorf("Repair(%q, %q) = %v, want no time", tc.value, tc.drawDate, got)
 		}
 	}
 }
@@ -53,7 +53,7 @@ func TestStrictTimestampStillRejectsTypos(t *testing.T) {
 		"October 7 at 16:38:21 UTC",
 	} {
 		if got, ok := Timestamp(s); ok {
-			t.Errorf("Timestamp(%q) = %v, want it left to RecoverTimestamp", s, got)
+			t.Errorf("Timestamp(%q) = %v, want it left to Repair", s, got)
 		}
 	}
 }
