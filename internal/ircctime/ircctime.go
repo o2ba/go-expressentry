@@ -1,4 +1,8 @@
-package clean
+// Package ircctime reads the dates and times IRCC types by hand in its
+// rounds files. Timestamp and Day accept the usual variations (ordinal
+// suffixes, stray commas and spaces, a missing "UTC"); Repair reads the
+// known typos in old rounds that they reject. Every time is UTC.
+package ircctime
 
 import (
 	"regexp"

@@ -1,4 +1,4 @@
-package clean
+package ircctime
 
 import (
 	"regexp"
@@ -51,11 +51,11 @@ func meridiem(m []string) string {
 	return strconv.Itoa(hour) + m[2]
 }
 
-// RecoverTimestamp reads times IRCC typed badly in old rounds, which
+// Repair reads times IRCC typed badly in old rounds, which
 // Timestamp rejects. When IRCC left the year out ("October 7 at 16:38:21
 // UTC"), it comes from the round's drawDate, a year earlier if that would
 // put the time after the draw.
-func RecoverTimestamp(s, drawDate string) (time.Time, bool) {
+func Repair(s, drawDate string) (time.Time, bool) {
 	for _, f := range typoFixes {
 		s = f.pattern.ReplaceAllStringFunc(s, func(match string) string {
 			return f.replace(f.pattern.FindStringSubmatch(match))

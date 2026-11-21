@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/o2ba/go-expressentry/internal/clean"
+	"github.com/o2ba/go-expressentry/internal/ircctime"
 	"github.com/o2ba/go-expressentry/internal/raw"
 )
 
@@ -120,10 +121,10 @@ func (p *parser) timestamp(n RoundNumber, field, value, drawDate string) time.Ti
 	if value == "" {
 		return time.Time{}
 	}
-	if t, ok := clean.Timestamp(value); ok {
+	if t, ok := ircctime.Timestamp(value); ok {
 		return t
 	}
-	if t, ok := clean.RecoverTimestamp(value, drawDate); ok {
+	if t, ok := ircctime.Repair(value, drawDate); ok {
 		p.issue(Issue{Kind: Repaired, Round: n, Field: field, Value: value})
 		return t
 	}
@@ -140,7 +141,7 @@ func (p *parser) pool(r raw.Round) (Pool, bool) {
 	if r.DistributionAsOn == "" {
 		return Pool{}, false
 	}
-	day, ok := clean.Day(r.DistributionAsOn)
+	day, ok := ircctime.Day(r.DistributionAsOn)
 	if !ok {
 		p.issue(Issue{Kind: Invalid, Round: RoundNumber(r.DrawNumber), Field: "drawDistributionAsOn", Value: r.DistributionAsOn, Err: errors.New("not a date")})
 		return Pool{}, false
