@@ -28,8 +28,8 @@ type Draw struct {
 	Invitations int
 	MinimumCRS  int
 	// TieBreak is the tie-breaking rule: among candidates with MinimumCRS,
-	// only those who entered the pool before it were invited. It is the zero
-	// Time when IRCC gives none.
+	// only those who entered the pool before it were invited. It is in UTC,
+	// as IRCC publishes it, or the zero Time when IRCC gives none.
 	TieBreak time.Time
 	// Programs names the programs the round covered.
 	Programs Name
