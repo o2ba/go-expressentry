@@ -12,6 +12,17 @@ type Rounds struct {
 	// Issues lists rounds left out, values repaired and snapshots that
 	// disagree, in the order they were found.
 	Issues []Issue
+	// Version identifies the files these rounds were read from. Pass it to
+	// [Client.RoundsSince] to download them again only once they change.
+	// It is the zero Version after [Parse].
+	Version Version
+}
+
+// Version is the Last-Modified time IRCC's server gave each file. Either
+// is the zero Time when the server sent none.
+type Version struct {
+	EN time.Time
+	FR time.Time
 }
 
 // Draw is one round of invitations.

@@ -10,6 +10,9 @@ var (
 	// ErrUnexpectedFormat is wrapped by the error returned when a file isn't
 	// a rounds file, or none of its rounds can be read.
 	ErrUnexpectedFormat = errors.New("expressentry: unexpected format")
+	// ErrNotModified is returned by [Client.RoundsSince] when neither file
+	// changed.
+	ErrNotModified = errors.New("expressentry: not modified")
 	// ErrNotImplemented is returned until the parser is in place.
 	ErrNotImplemented = errors.New("expressentry: not implemented")
 )

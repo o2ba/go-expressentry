@@ -41,11 +41,21 @@ for _, d := range r.Draws {
 | `WithURLs(en, fr)` | IRCC's published files; an empty `fr` skips French |
 | `WithUserAgent(ua)` | `go-expressentry` |
 
+To poll without downloading unchanged files, keep `r.Version` and pass it
+back:
+
+```go
+r, err := c.RoundsSince(ctx, last.Version)
+if errors.Is(err, expressentry.ErrNotModified) {
+	return nil
+}
+```
+
 A problem with one round never fails the call. The round is left out or
 repaired, and the problem is listed in `Rounds.Issues`.
 
 The package keeps no state and polls nothing. Fetching on a schedule,
-storing results and spotting new rounds are up to you.
+keeping the last `Version`, storing results and spotting new rounds are up to you.
 
 ## License
 
