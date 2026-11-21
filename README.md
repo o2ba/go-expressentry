@@ -45,9 +45,9 @@ To poll without downloading unchanged files, keep `r.Version` and pass it
 back:
 
 ```go
-r, err := c.RoundsSince(ctx, last.Version)
-if errors.Is(err, expressentry.ErrNotModified) {
-	return nil
+r, changed, err := c.RoundsSince(ctx, last.Version)
+if err != nil || !changed {
+	return err
 }
 ```
 

@@ -76,10 +76,11 @@ func (c *Client) Rounds(ctx context.Context) (*Rounds, error) {
 
 // RoundsSince is Rounds, but asks the server to send the files only if
 // they changed after v, which came from an earlier [Rounds.Version]. When
-// neither file changed it returns [ErrNotModified] and downloads nothing
-// else. A zero v behaves like Rounds.
-func (c *Client) RoundsSince(ctx context.Context, v Version) (*Rounds, error) {
-	return nil, ErrNotImplemented
+// neither file changed it returns nil, false and a nil error. When one
+// changed, both are read again and changed is true. A zero v behaves like
+// Rounds.
+func (c *Client) RoundsSince(ctx context.Context, v Version) (r *Rounds, changed bool, err error) {
+	return nil, false, ErrNotImplemented
 }
 
 // Parse reads the English and French rounds files. fr may be nil, and every
