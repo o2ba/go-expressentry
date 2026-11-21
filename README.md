@@ -96,7 +96,13 @@ context ends.
 ```sh
 go test -race ./...
 go test -run='^$' -fuzz=FuzzParse -fuzztime=30s .
+EXPRESSENTRY_LIVE=1 go test -run '^TestLive$' -v .
 ```
+
+`TestLive` reads IRCC's live files and fails on any issue other than a
+known repair. The Live workflow runs it every Monday and opens an issue when it
+fails (or comments on the open one), so a new format shows up before it
+reaches callers.
 
 ## License
 
