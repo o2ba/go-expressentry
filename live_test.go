@@ -3,13 +3,17 @@ package expressentry
 import (
 	"context"
 	"os"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/o2ba/go-expressentry/internal/corrections"
 )
 
 // TestLive reads IRCC's published files and fails on any issue other than a
-// known repair, so a format change shows up before callers hit it. It only
-// runs with EXPRESSENTRY_LIVE=1.
+// known repair, so a format change shows up before callers hit it. It also
+// fails when a correction no longer matches, so ones IRCC fixed get removed.
+// It only runs with EXPRESSENTRY_LIVE=1.
 func TestLive(t *testing.T) {
 	if os.Getenv("EXPRESSENTRY_LIVE") != "1" {
 		t.Skip("set EXPRESSENTRY_LIVE=1 to read IRCC's live files")
@@ -32,6 +36,13 @@ func TestLive(t *testing.T) {
 	for _, d := range r.Draws {
 		if d.Date.IsZero() || d.InvitedAt.IsZero() {
 			t.Errorf("round %s: date %v, invited at %v", d.Number, d.Date, d.InvitedAt)
+		}
+	}
+	for _, c := range corrections.All {
+		if !slices.ContainsFunc(r.Issues, func(i Issue) bool {
+			return i.Kind == Repaired && string(i.Round) == c.Round && i.Field == c.Field && i.Value == c.Wrong
+		}) {
+			t.Errorf("correction for round %s %s (%s) no longer matches IRCC's file; if IRCC fixed it, remove it from internal/corrections/list.go", c.Round, c.Field, c.Lang)
 		}
 	}
 	newest := r.Draws[0]

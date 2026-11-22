@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/o2ba/go-expressentry/internal/clean"
+	"github.com/o2ba/go-expressentry/internal/corrections"
 	"github.com/o2ba/go-expressentry/internal/ircctime"
 	"github.com/o2ba/go-expressentry/internal/raw"
 )
@@ -38,6 +39,7 @@ func parse(en, fr []byte) (r *Rounds, usedFrench bool, err error) {
 		return nil, false, fmt.Errorf("%w: English file: %w", ErrUnexpectedFormat, err)
 	}
 	var p parser
+	p.correct(corrections.English, enFeed)
 	french := map[string]raw.Round{}
 	if fr != nil {
 		frFeed, err := raw.Parse(fr)
@@ -45,6 +47,7 @@ func parse(en, fr []byte) (r *Rounds, usedFrench bool, err error) {
 			p.issue(Issue{Kind: FrenchUnavailable, Err: err})
 		} else {
 			usedFrench = true
+			p.correct(corrections.French, frFeed)
 			for _, u := range frFeed.Unreadable {
 				p.issue(Issue{Kind: FrenchUnavailable, Round: RoundNumber(u.Number), Err: u.Err})
 			}
@@ -64,6 +67,17 @@ func parse(en, fr []byte) (r *Rounds, usedFrench bool, err error) {
 
 type parser struct {
 	issues []Issue
+}
+
+// correct applies the known corrections to feed's rounds, reporting each
+// as Repaired with IRCC's original value.
+func (p *parser) correct(lang corrections.Lang, feed *raw.Feed) {
+	for i := range feed.Rounds {
+		r := &feed.Rounds[i]
+		for _, c := range corrections.Apply(corrections.All, lang, r) {
+			p.issue(Issue{Kind: Repaired, Round: RoundNumber(r.DrawNumber), Field: c.Field, Value: c.Wrong, Err: fmt.Errorf("corrected by hand: %s", c.Why)})
+		}
+	}
 }
 
 func (p *parser) issue(i Issue) {

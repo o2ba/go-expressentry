@@ -12,7 +12,8 @@ const (
 	// Invalid: a field couldn't be read and is left empty; the round is
 	// kept.
 	Invalid
-	// Repaired: a field had a known typo and was read anyway.
+	// Repaired: a field had a known typo and was read anyway, or a past
+	// mistake was corrected by hand. Value is IRCC's original text.
 	Repaired
 	// PoolConflict: two rounds gave different numbers for the same pool
 	// snapshot. The earlier round's numbers are kept.
