@@ -71,8 +71,9 @@ type Band struct {
 	Bands []Band
 }
 
-// Name is text in English and French. FR is empty when IRCC gave no French
-// text, as when its French file lags a round behind or wasn't read.
+// Name is text in English and French. FR is empty when the French file has
+// no entry for the round or couldn't be read, or when its entry has another
+// date (reported as [FrenchMismatch]).
 type Name struct {
 	EN string
 	FR string

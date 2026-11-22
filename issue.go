@@ -18,8 +18,18 @@ const (
 	// snapshot. The earlier round's numbers are kept.
 	PoolConflict
 	// FrenchUnavailable: the French file couldn't be read, so every [Name]
-	// has only its English text. Round is empty.
+	// has only its English text, and Round is empty. With Round set, only
+	// that French round couldn't be read.
 	FrenchUnavailable
+	// FrenchOnly: a round is in the French file but not the English one.
+	// It is left out of [Rounds.Draws], since the English file decides
+	// which rounds exist.
+	FrenchOnly
+	// FrenchMismatch: a round's French entry gives Field a different Value
+	// from the English one. The English value is kept, and pool counts
+	// that differ come in one issue. When the dates differ, the French
+	// entry is taken to be another round and its text isn't used.
+	FrenchMismatch
 )
 
 func (k IssueKind) String() string {
@@ -34,6 +44,10 @@ func (k IssueKind) String() string {
 		return "pool conflict"
 	case FrenchUnavailable:
 		return "French unavailable"
+	case FrenchOnly:
+		return "French only"
+	case FrenchMismatch:
+		return "French mismatch"
 	default:
 		return fmt.Sprintf("IssueKind(%d)", int(k))
 	}
@@ -46,7 +60,9 @@ type Issue struct {
 	// Field is IRCC's JSON key for the value, such as "drawCutOff", or ""
 	// when the issue is about the whole round.
 	Field string
-	// Value is the text as IRCC published it.
+	// Value is the text as IRCC published it. Numbers in a [FrenchMismatch]
+	// are normalized ("5 000" becomes "5000"), and differing pool counts
+	// are listed together, as in Field "dd3,dd7" and Value "120,340".
 	Value string
 	Err   error
 }
