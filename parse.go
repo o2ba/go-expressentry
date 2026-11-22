@@ -130,7 +130,7 @@ func (p *parser) french(en raw.Round, french map[string]raw.Round) raw.Round {
 		if !fr.Keys[field] {
 			return
 		}
-		p.issue(Issue{Kind: FrenchMismatch, Round: n, Field: field, Value: frValue, Err: fmt.Errorf("English has %q", enValue)})
+		p.issue(Issue{Kind: FrenchMismatch, Round: n, Field: field, Value: frValue, Err: fmt.Errorf("the English file has %q", enValue)})
 	}
 	if fr.Keys["drawDate"] && fr.DrawDate != en.DrawDate {
 		mismatch("drawDate", en.DrawDate, fr.DrawDate)
