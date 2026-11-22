@@ -19,9 +19,15 @@ import (
 // The error wraps [ErrUnexpectedFormat] when en isn't a rounds file or none
 // of its rounds can be read.
 func Parse(en, fr []byte) (*Rounds, error) {
+	r, _, err := parse(en, fr)
+	return r, err
+}
+
+// parse is Parse, and also reports whether French text from fr was used.
+func parse(en, fr []byte) (r *Rounds, usedFrench bool, err error) {
 	enFeed, err := raw.Parse(en)
 	if err != nil {
-		return nil, fmt.Errorf("%w: English file: %w", ErrUnexpectedFormat, err)
+		return nil, false, fmt.Errorf("%w: English file: %w", ErrUnexpectedFormat, err)
 	}
 	var p parser
 	french := map[string]raw.Round{}
@@ -30,6 +36,7 @@ func Parse(en, fr []byte) (*Rounds, error) {
 		if err != nil {
 			p.issue(Issue{Kind: FrenchUnavailable, Err: err})
 		} else {
+			usedFrench = true
 			for _, r := range frFeed.Rounds {
 				if _, ok := french[string(r.DrawNumber)]; !ok {
 					french[string(r.DrawNumber)] = r
@@ -39,9 +46,9 @@ func Parse(en, fr []byte) (*Rounds, error) {
 	}
 	out := p.rounds(enFeed, french)
 	if len(out.Draws) == 0 {
-		return nil, fmt.Errorf("%w: English file: no round has a number", ErrUnexpectedFormat)
+		return nil, false, fmt.Errorf("%w: English file: no round has a number", ErrUnexpectedFormat)
 	}
-	return out, nil
+	return out, usedFrench, nil
 }
 
 type parser struct {
