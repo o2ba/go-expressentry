@@ -374,3 +374,19 @@ func TestKnownCorrectionIsApplied(t *testing.T) {
 		t.Errorf("issues = %v", r.Issues)
 	}
 }
+
+func TestMissingEnglishPageIsDropped(t *testing.T) {
+	var c corrections.Correction
+	for _, x := range corrections.All {
+		if x.Round == "34" {
+			c = x
+		}
+	}
+	r := mustParse(t, fmt.Sprintf(`{"rounds":[{"drawNumber":"34","drawDate":"2016-05-18","drawName":"No Program Specified","drawNumberURL":%q}]}`, c.Wrong), "")
+	if got := r.Draws[0].Instructions.EN; got != "" {
+		t.Errorf("Instructions.EN = %q, want none", got)
+	}
+	if len(r.Issues) != 1 || r.Issues[0].Kind != Repaired {
+		t.Errorf("issues = %v", r.Issues)
+	}
+}
