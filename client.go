@@ -84,6 +84,11 @@ func (c *Client) Rounds(ctx context.Context) (*Rounds, error) {
 // neither file changed it returns nil, false and a nil error. When one
 // changed, both are read again and changed is true. A zero v behaves like
 // Rounds.
+//
+// A French file that fails while the English one is unchanged counts as
+// unchanged, so the error isn't seen until the English file changes. When
+// French text is missing from a result, its Version.FR is zero, so the
+// next call downloads the French file again.
 func (c *Client) RoundsSince(ctx context.Context, v Version) (r *Rounds, changed bool, err error) {
 	en, err := c.get(ctx, c.englishURL, v.EN)
 	if err != nil {
@@ -110,9 +115,12 @@ func (c *Client) RoundsSince(ctx context.Context, v Version) (r *Rounds, changed
 	if frErr != nil {
 		fr = fetched{}
 	}
-	r, err = Parse(en.body, fr.body)
+	r, usedFrench, err := parse(en.body, fr.body)
 	if err != nil {
 		return nil, false, err
+	}
+	if !usedFrench {
+		fr.lastModified = time.Time{}
 	}
 	if frErr != nil {
 		r.Issues = append([]Issue{{Kind: FrenchUnavailable, Err: frErr}}, r.Issues...)
@@ -150,6 +158,7 @@ func (c *Client) get(ctx context.Context, url string, since time.Time) (fetched,
 	case resp.StatusCode == http.StatusNotModified && !since.IsZero():
 		return fetched{lastModified: since, notModified: true}, nil
 	case resp.StatusCode != http.StatusOK:
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
 		return fetched{}, &HTTPError{URL: url, StatusCode: resp.StatusCode}
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFileSize+1))

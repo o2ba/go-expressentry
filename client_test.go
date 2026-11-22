@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -14,10 +16,10 @@ import (
 // feeds serves an English and a French rounds file with Last-Modified
 // times, honouring If-Modified-Since the way canada.ca does.
 type feeds struct {
-	mu       sync.Mutex
-	files    map[string]served
-	requests map[string]int
-	agents   []string
+	mu         sync.Mutex
+	files      map[string]served
+	requests   map[string]int
+	userAgents []string
 }
 
 type served struct {
@@ -40,7 +42,7 @@ func newFeeds(t *testing.T) (*feeds, *Client) {
 		f.mu.Lock()
 		file, ok := f.files[r.URL.Path]
 		f.requests[r.URL.Path]++
-		f.agents = append(f.agents, r.UserAgent())
+		f.userAgents = append(f.userAgents, r.UserAgent())
 		f.mu.Unlock()
 		switch {
 		case !ok:
@@ -61,6 +63,24 @@ func (f *feeds) set(path string, s served) {
 	f.files[path] = s
 }
 
+func (f *feeds) file(path string) served {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.files[path]
+}
+
+func (f *feeds) agents() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.userAgents)
+}
+
+func (f *feeds) requested() map[string]int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return maps.Clone(f.requested())
+}
+
 func (f *feeds) count(path string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -76,10 +96,10 @@ func TestRounds(t *testing.T) {
 	if len(r.Draws) != 2 || r.Draws[1].Name.FR == "" || len(r.Issues) != 0 {
 		t.Fatalf("rounds = %+v", r)
 	}
-	if want := (Version{EN: f.files["/en.json"].modified, FR: f.files["/fr.json"].modified}); r.Version != want {
+	if want := (Version{EN: f.file("/en.json").modified, FR: f.file("/fr.json").modified}); r.Version != want {
 		t.Errorf("Version = %+v, want %+v", r.Version, want)
 	}
-	for _, ua := range f.agents {
+	for _, ua := range f.agents() {
 		if ua != "test/1" {
 			t.Errorf("User-Agent = %q", ua)
 		}
@@ -97,7 +117,7 @@ func TestRoundsSinceUnchanged(t *testing.T) {
 		t.Fatalf("RoundsSince = %v, %v, %v; want nil, false, nil", r, changed, err)
 	}
 	if f.count("/en.json") != 2 || f.count("/fr.json") != 2 {
-		t.Errorf("requests = %v", f.requests)
+		t.Errorf("requests = %v", f.requested())
 	}
 }
 
@@ -107,7 +127,7 @@ func TestRoundsSinceOneFileChanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	en := f.files["/en.json"]
+	en := f.file("/en.json")
 	en.modified = en.modified.Add(time.Hour)
 	f.set("/en.json", en)
 
@@ -160,7 +180,7 @@ func TestRoundsWithoutFrench(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.count("/fr.json") != 0 || len(r.Issues) != 0 || r.Draws[1].Name.FR != "" {
-		t.Errorf("requests = %v, issues = %v", f.requests, r.Issues)
+		t.Errorf("requests = %v, issues = %v", f.requested(), r.Issues)
 	}
 }
 
@@ -178,5 +198,73 @@ func TestRoundsCancelled(t *testing.T) {
 	cancel()
 	if _, err := c.Rounds(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+}
+
+func TestRoundsSinceOnlyFrenchChanged(t *testing.T) {
+	f, c := newFeeds(t)
+	first, err := c.Rounds(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fr := f.file("/fr.json")
+	fr.modified = fr.modified.Add(time.Hour)
+	f.set("/fr.json", fr)
+
+	r, changed, err := c.RoundsSince(context.Background(), first.Version)
+	if err != nil || !changed {
+		t.Fatalf("RoundsSince = %v, %v", changed, err)
+	}
+	if len(r.Draws) != 2 || r.Draws[1].Name.FR == "" {
+		t.Errorf("draws = %+v", r.Draws)
+	}
+	if r.Version.EN != first.Version.EN || r.Version.FR != fr.modified {
+		t.Errorf("Version = %+v", r.Version)
+	}
+	if f.count("/en.json") != 3 {
+		t.Errorf("English requests = %d, want a refetch after its 304", f.count("/en.json"))
+	}
+}
+
+func TestRoundsSinceFrenchFails(t *testing.T) {
+	f, c := newFeeds(t)
+	first, err := c.Rounds(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	en := f.file("/en.json")
+	en.modified = en.modified.Add(time.Hour)
+	f.set("/en.json", en)
+	f.set("/fr.json", served{status: http.StatusNotFound})
+
+	r, changed, err := c.RoundsSince(context.Background(), first.Version)
+	if err != nil || !changed {
+		t.Fatalf("RoundsSince = %v, %v", changed, err)
+	}
+	if len(r.Issues) != 1 || r.Issues[0].Kind != FrenchUnavailable || !r.Version.FR.IsZero() {
+		t.Errorf("issues = %v, Version = %+v", r.Issues, r.Version)
+	}
+}
+
+func TestUnreadableFrenchIsFetchedAgain(t *testing.T) {
+	f, c := newFeeds(t)
+	good := f.file("/fr.json")
+	f.set("/fr.json", served{body: "<html>maintenance</html>", modified: good.modified.Add(time.Hour)})
+
+	first, err := c.Rounds(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Issues) != 1 || first.Issues[0].Kind != FrenchUnavailable || !first.Version.FR.IsZero() {
+		t.Fatalf("issues = %v, Version = %+v", first.Issues, first.Version)
+	}
+
+	f.set("/fr.json", good)
+	r, changed, err := c.RoundsSince(context.Background(), first.Version)
+	if err != nil || !changed {
+		t.Fatalf("RoundsSince = %v, %v", changed, err)
+	}
+	if r.Draws[1].Name.FR == "" || r.Version.FR != good.modified {
+		t.Errorf("French not picked up again: FR = %q, Version = %+v", r.Draws[1].Name.FR, r.Version)
 	}
 }
