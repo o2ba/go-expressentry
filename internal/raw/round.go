@@ -27,6 +27,10 @@ type Round struct {
 	// BadDistribution lists the ddN fields that aren't counts. The round
 	// still reads; its pool shouldn't be trusted.
 	BadDistribution []BadField `json:"-"`
+
+	// Keys holds every key the round had, so a missing field can be told
+	// from an empty one.
+	Keys map[string]bool `json:"-"`
 }
 
 // BadField is a field whose value couldn't be read.
@@ -45,6 +49,10 @@ func (r *Round) UnmarshalJSON(b []byte) error {
 	var all map[string]json.RawMessage
 	if err := json.Unmarshal(b, &all); err != nil {
 		return err
+	}
+	r.Keys = make(map[string]bool, len(all))
+	for k := range all {
+		r.Keys[k] = true
 	}
 	for i := range Bands {
 		key := fmt.Sprintf("dd%d", i+1)

@@ -280,3 +280,63 @@ func TestCleanCategoriesAreValid(t *testing.T) {
 		}
 	}
 }
+
+func TestFrenchOnlyRounds(t *testing.T) {
+	r := mustParse(t, `{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Canadian Experience Class"}]}`,
+		`{"rounds":[{"drawNumber":"11","drawName":"onze"},{"drawNumber":"9","drawName":"neuf"},{"drawNumber":"10","drawName":"dix"}]}`)
+	if len(r.Draws) != 1 || r.Draws[0].Name.FR != "neuf" {
+		t.Fatalf("draws = %+v", r.Draws)
+	}
+	var got []RoundNumber
+	for _, i := range r.Issues {
+		if i.Kind != FrenchOnly {
+			t.Errorf("issue = %v", i)
+		}
+		got = append(got, i.Round)
+	}
+	if !slices.Equal(got, []RoundNumber{"10", "11"}) {
+		t.Errorf("French-only rounds = %q, want 10, 11", got)
+	}
+}
+
+func TestFrenchDateMismatchDropsFrenchText(t *testing.T) {
+	r := mustParse(t, `{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Canadian Experience Class","drawSize":"100"}]}`,
+		`{"rounds":[{"drawNumber":"9","drawDate":"2026-01-08","drawName":"autre","drawSize":"200"}]}`)
+	d := r.Draws[0]
+	if d.Name.FR != "" || d.Date.String() != "2026-01-01" || d.Invitations != 100 {
+		t.Errorf("draw = %+v", d)
+	}
+	if len(r.Issues) != 1 || r.Issues[0].Kind != FrenchMismatch || r.Issues[0].Field != "drawDate" || r.Issues[0].Value != "2026-01-08" {
+		t.Errorf("issues = %v", r.Issues)
+	}
+}
+
+func TestFrenchValueMismatchKeepsEnglish(t *testing.T) {
+	r := mustParse(t, `{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Canadian Experience Class","drawSize":"5,000","drawCRS":"500","dd1":"10","dd18":"10"}]}`,
+		`{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Catégorie de l'expérience canadienne","drawSize":"5 000","drawCRS":"499","dd1":"11","dd18":"10"}]}`)
+	d := r.Draws[0]
+	if d.Name.FR == "" || d.MinimumCRS != 500 || d.Invitations != 5000 {
+		t.Errorf("draw = %+v", d)
+	}
+	var fields []string
+	for _, i := range r.Issues {
+		if i.Kind != FrenchMismatch {
+			t.Errorf("issue = %v", i)
+		}
+		fields = append(fields, i.Field)
+	}
+	if !slices.Equal(fields, []string{"drawCRS", "dd1"}) {
+		t.Errorf("fields = %q, want drawCRS, dd1", fields)
+	}
+}
+
+func TestUnreadableFrenchRound(t *testing.T) {
+	r := mustParse(t, `{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Canadian Experience Class"}]}`,
+		`{"rounds":[{"drawNumber":"9","drawName":"neuf"},{"drawNumber":"8","drawSize":"beaucoup"}]}`)
+	if r.Draws[0].Name.FR != "neuf" {
+		t.Errorf("Name.FR = %q", r.Draws[0].Name.FR)
+	}
+	if len(r.Issues) != 1 || r.Issues[0].Kind != FrenchUnavailable || r.Issues[0].Round != "8" {
+		t.Errorf("issues = %v", r.Issues)
+	}
+}
