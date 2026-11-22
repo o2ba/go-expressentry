@@ -48,10 +48,6 @@ if err != nil || !changed {
 }
 ```
 
-The package keeps no state and polls nothing. Fetching on a schedule,
-keeping the last `Version`, storing results and spotting new rounds are up
-to you.
-
 ## Where the data comes from
 
 The client reads IRCC's two rounds files, which back the table on the
