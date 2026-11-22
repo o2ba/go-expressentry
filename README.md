@@ -112,8 +112,8 @@ numbers. This is round 453 in the English file, cut down:
 | `drawSize`, `drawCRS` | Invitations and the lowest score invited, with thousands separators: `"5,000"` in English, `"5 000"` in French. |
 | `drawDistributionAsOn` | The date of the pool snapshot published with the round, written out. |
 | `dd1` to `dd18` | Profiles in the pool by score: `dd1` 601-1200, `dd2` 501-600, `dd3` 451-500 split into `dd4` to `dd8` (10 points each, highest first), `dd9` 401-450 split into `dd10` to `dd14`, `dd15` 351-400, `dd16` 301-350, `dd17` 0-300 and `dd18` the total. Early rounds have `"0"` everywhere. |
-| `drawNumberURL` | An HTML link to the round's ministerial instructions: `invitations.html?q=453` for newer rounds, a page of its own such as `invitations-1.html` for old ones. Newer rounds use the site's internal `/content/canadasite` path, which canada.ca redirects. Read into `Instructions` as an absolute public URL. |
-| `mitext`, `DrawText1` | The same link with other text. Not read. IRCC's own links have mistakes: in round 65 these two point to round 64's page, the French link for round 149 is broken (`invitations-14.html9`), and round 34's English page doesn't exist. Both are corrected (see below). Every other link was checked and loads. |
+| `drawNumberURL` | An HTML link to the round's ministerial instructions: `invitations.html?q=453` for newer rounds, a page of its own such as `invitations-1.html` for old ones. Newer rounds use the site's internal `/content/canadasite` path, which canada.ca redirects. Read into `Instructions` as an absolute public URL. Two are wrong and corrected (see below): the French link for round 149 is broken (`invitations-14.html9`), and round 34's English page doesn't exist. Every other link was checked and loads. |
+| `mitext`, `DrawText1` | The same link with other text. Not read. In round 65 these two point to round 64's page; `drawNumberURL` is right. |
 
 The times are typed by hand and vary: ordinal suffixes
 (`"1st"`), doubled spaces, a missing `UTC`, and in old rounds typos such as
