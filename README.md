@@ -66,6 +66,59 @@ and gives every number, date and category. The French file only adds the
 French text of `Name` and `Programs`, matched by round number. A round the
 French file doesn't have gets empty French text.
 
+## How IRCC shapes the files
+
+Each file is a JSON object with a `classes` key (a CSS class for the web
+table) and a `rounds` array, newest round first. The English file is about
+740 KB, and the French one a little larger. Every value is a string, even
+numbers. This is round 453 in the English file, cut down:
+
+```json
+{
+  "classes": "wb-tables",
+  "rounds": [
+    {
+      "drawNumber": "453",
+      "drawNumberURL": "<a href='...invitations.html?q=453'>453</a>",
+      "drawDate": "2026-10-28",
+      "drawDateFull": "October 28, 2026",
+      "drawDateTime": "October 28, 2026 at 10:34:14 UTC",
+      "drawName": "Transport Occupations, 2026-Version 2",
+      "drawSize": "150",
+      "drawCRS": "477",
+      "mitext": "<a href='...'>Invitations to apply for permanent residence under the Express Entry system #453</a>",
+      "DrawText1": "<a href='...'>See full text of Ministerial Instruction</a>",
+      "drawText2": "Federal Skilled Worker Program, Canadian Experience Class and Federal Skilled Trades Program",
+      "drawCutOff": "June 4, 2026 at 21:48:22 UTC",
+      "drawDistributionAsOn": "October 25, 2026",
+      "dd1": "787",
+      "dd2": "20,535",
+      "dd3": "71,112",
+      "dd18": "228,724"
+    }
+  ]
+}
+```
+
+| Key | What it holds |
+| --- | --- |
+| `drawNumber` | The round number. Usually digits, but once `"91b"`. |
+| `drawDate` | The round's date as `YYYY-MM-DD`, the same in both files. |
+| `drawDateFull` | The same date written out, in the file's language. |
+| `drawDateTime` | When invitations went out, typed by hand: `"October 28, 2026 at 10:34:14 UTC"` in English, `"28 octobre 2026 à 10:34:14 UTC"` in French. |
+| `drawCutOff` | The tie-break time, typed the same way. Empty in the earliest rounds. |
+| `drawName` | IRCC's name for the round, such as `"Canadian Experience Class"`. It differs between the files. |
+| `drawText2` | The programs the round covered, as text. |
+| `drawSize`, `drawCRS` | Invitations and the lowest score invited, with thousands separators: `"5,000"` in English, `"5 000"` in French. |
+| `drawDistributionAsOn` | The date of the pool snapshot published with the round, written out. |
+| `dd1` to `dd18` | Profiles in the pool by score: `dd1` 601-1200, `dd2` 501-600, `dd3` 451-500 split into `dd4` to `dd8` (10 points each, highest first), `dd9` 401-450 split into `dd10` to `dd14`, `dd15` 351-400, `dd16` 301-350, `dd17` 0-300 and `dd18` the total. Early rounds have `"0"` everywhere. |
+| `drawNumberURL`, `mitext`, `DrawText1` | HTML links to the round's ministerial instructions. Not read. |
+
+The times are typed by hand and vary: ordinal suffixes
+(`"1st"`), doubled spaces, a missing `UTC`, and in old rounds typos such as
+`"at12:48:30"`, `"20:19:59 PM"` or a time with no year. Rounds 208 to 333
+hold all of the typos this package repairs.
+
 ## What you get
 
 `Rounds` and `RoundsSince` return a `*Rounds`:
@@ -152,7 +205,7 @@ that explains it:
 | `PoolConflict` | Two rounds gave different counts for the same pool date. The earlier round's counts are kept. |
 | `FrenchUnavailable` | The French file couldn't be downloaded or read, so names have English text only. With `Round` set, only that French round couldn't be read. |
 | `FrenchOnly` | A round is in the French file but not the English one. It is left out. |
-| `FrenchMismatch` | The two files disagree on a round's `drawDate`, `drawSize`, `drawCRS` or pool counts. The English value is kept. |
+| `FrenchMismatch` | The two files disagree on a round's `drawDate`, `drawSize`, `drawCRS` or pool counts. The English value is kept, and all differing pool counts of a round come in one issue. |
 
 ## When English and French disagree
 
