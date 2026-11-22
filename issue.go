@@ -18,8 +18,18 @@ const (
 	// snapshot. The earlier round's numbers are kept.
 	PoolConflict
 	// FrenchUnavailable: the French file couldn't be read, so every [Name]
-	// has only its English text. Round is empty.
+	// has only its English text, and Round is empty. With Round set, only
+	// that French round couldn't be read.
 	FrenchUnavailable
+	// FrenchOnly: a round is in the French file but not the English one.
+	// It is left out of [Rounds.Draws], since the English file decides
+	// which rounds exist.
+	FrenchOnly
+	// FrenchMismatch: a round's French entry gives Field a different Value
+	// from the English one. The English value is kept. When the dates
+	// differ, the French entry is taken to be another round and its text
+	// isn't used.
+	FrenchMismatch
 )
 
 func (k IssueKind) String() string {
@@ -34,6 +44,10 @@ func (k IssueKind) String() string {
 		return "pool conflict"
 	case FrenchUnavailable:
 		return "French unavailable"
+	case FrenchOnly:
+		return "French only"
+	case FrenchMismatch:
+		return "French mismatch"
 	default:
 		return fmt.Sprintf("IssueKind(%d)", int(k))
 	}
