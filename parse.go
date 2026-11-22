@@ -1,10 +1,12 @@
 package expressentry
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/o2ba/go-expressentry/internal/clean"
@@ -99,7 +101,7 @@ func (p *parser) rounds(en *raw.Feed, french map[string]raw.Round) *Rounds {
 		out.Draws = append(out.Draws, d)
 	}
 
-	p.frenchOnly(french, seen)
+	p.frenchOnly(french, seen, en.Unreadable)
 	slices.Reverse(out.Draws)
 	for _, k := range pools {
 		out.Pools = append(out.Pools, k.pool)
@@ -119,49 +121,76 @@ func (p *parser) rounds(en *raw.Feed, french map[string]raw.Round) *Rounds {
 
 // french returns the French entry for en, or an empty one when there is
 // none or it looks like another round. Values that differ are reported;
-// the English ones are always kept.
+// the English ones are always kept. A field is compared only when both
+// files have it and both values read.
 func (p *parser) french(en raw.Round, french map[string]raw.Round) raw.Round {
 	fr, ok := french[string(en.DrawNumber)]
 	if !ok {
 		return raw.Round{}
 	}
 	n := RoundNumber(en.DrawNumber)
+	both := func(field string) bool { return en.Keys[field] && fr.Keys[field] }
 	mismatch := func(field, enValue, frValue string) {
-		if !fr.Keys[field] {
-			return
-		}
 		p.issue(Issue{Kind: FrenchMismatch, Round: n, Field: field, Value: frValue, Err: fmt.Errorf("the English file has %q", enValue)})
 	}
-	if fr.Keys["drawDate"] && fr.DrawDate != en.DrawDate {
+	if both("drawDate") && !sameDay(en.DrawDate, fr.DrawDate) {
 		mismatch("drawDate", en.DrawDate, fr.DrawDate)
 		return raw.Round{}
 	}
-	if fr.DrawSize != en.DrawSize {
+	if both("drawSize") && fr.DrawSize != en.DrawSize {
 		mismatch("drawSize", itoa(en.DrawSize), itoa(fr.DrawSize))
 	}
-	if fr.DrawCRS != en.DrawCRS {
+	if both("drawCRS") && fr.DrawCRS != en.DrawCRS {
 		mismatch("drawCRS", itoa(en.DrawCRS), itoa(fr.DrawCRS))
 	}
+
+	// A stale French pool would differ in most bands, so all the bands
+	// that differ go in one issue.
+	var keys, enValues, frValues []string
 	for i := range en.Distribution {
-		if fr.Distribution[i] != en.Distribution[i] {
-			mismatch(fmt.Sprintf("dd%d", i+1), itoa(en.Distribution[i]), itoa(fr.Distribution[i]))
+		key := fmt.Sprintf("dd%d", i+1)
+		if !both(key) || badCount(en, key) || badCount(fr, key) || fr.Distribution[i] == en.Distribution[i] {
+			continue
 		}
+		keys = append(keys, key)
+		enValues = append(enValues, itoa(en.Distribution[i]))
+		frValues = append(frValues, itoa(fr.Distribution[i]))
+	}
+	if len(keys) > 0 {
+		mismatch(strings.Join(keys, ","), strings.Join(enValues, ","), strings.Join(frValues, ","))
 	}
 	return fr
+}
+
+func sameDay(a, b string) bool {
+	a, b = strings.TrimSpace(a), strings.TrimSpace(b)
+	da, errA := ParseDate(a)
+	db, errB := ParseDate(b)
+	if errA != nil || errB != nil {
+		return a == b
+	}
+	return da == db
+}
+
+func badCount(r raw.Round, key string) bool {
+	return slices.ContainsFunc(r.BadDistribution, func(f raw.BadField) bool { return f.Key == key })
 }
 
 func itoa(i raw.Int) string { return strconv.Itoa(int(i)) }
 
 // frenchOnly reports French rounds the English file doesn't have, in round
-// order.
-func (p *parser) frenchOnly(french map[string]raw.Round, english map[string]bool) {
+// order. Rounds English has but couldn't read aren't French-only.
+func (p *parser) frenchOnly(french map[string]raw.Round, english map[string]bool, unreadable []raw.Unreadable) {
 	var only []string
 	for n := range french {
-		if n != "" && !english[n] {
-			only = append(only, n)
+		if n == "" || english[n] || slices.ContainsFunc(unreadable, func(u raw.Unreadable) bool { return string(u.Number) == n }) {
+			continue
 		}
+		only = append(only, n)
 	}
-	slices.SortFunc(only, clean.CompareRoundNumbers)
+	slices.SortFunc(only, func(a, b string) int {
+		return cmp.Or(clean.CompareRoundNumbers(a, b), strings.Compare(a, b))
+	})
 	for _, n := range only {
 		p.issue(Issue{Kind: FrenchOnly, Round: RoundNumber(n)})
 	}

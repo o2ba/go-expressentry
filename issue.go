@@ -26,7 +26,7 @@ const (
 	// which rounds exist.
 	FrenchOnly
 	// FrenchMismatch: a round's French entry gives Field a different Value
-	// from the English one. The English value is kept. When the dates
+	// from the English one. Pool counts that differ come in one issue. The English value is kept. When the dates
 	// differ, the French entry is taken to be another round and its text
 	// isn't used.
 	FrenchMismatch
@@ -60,7 +60,9 @@ type Issue struct {
 	// Field is IRCC's JSON key for the value, such as "drawCutOff", or ""
 	// when the issue is about the whole round.
 	Field string
-	// Value is the text as IRCC published it.
+	// Value is the text as IRCC published it. Numbers in a [FrenchMismatch]
+	// are normalized ("5 000" becomes "5000"), and differing pool counts
+	// are listed together, as in Field "dd3,dd7" and Value "120,340".
 	Value string
 	Err   error
 }
