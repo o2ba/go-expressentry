@@ -52,32 +52,102 @@ The package keeps no state and polls nothing. Fetching on a schedule,
 keeping the last `Version`, storing results and spotting new rounds are up
 to you.
 
+## Where the data comes from
+
+The client reads IRCC's two rounds files, which back the table on the
+[Express Entry rounds page](https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html):
+
+| File | URL |
+| --- | --- |
+| English (`DefaultEnglishURL`) | `https://www.canada.ca/content/dam/ircc/documents/json/ee_rounds_123_en.json` |
+| French (`DefaultFrenchURL`) | `https://www.canada.ca/content/dam/ircc/documents/json/ee_rounds_123_fr.json` |
+
+`WithURLs` points the client somewhere else, such as a mirror or a test
+server.
+
+**The English file is the source of truth.** It decides which rounds exist
+and gives every number, date and category. The French file only adds the
+French text of `Name` and `Programs`, matched by round number. The French
+file often lags a round behind, so the newest round may have no French text
+for a while.
+
 ## What you get
 
-| Field | From IRCC | Notes |
-| --- | --- | --- |
-| `Number` | `drawNumber` | Text, because of round `91b` |
-| `Date` | `drawDate` | A calendar day with no time zone |
-| `InvitedAt` | `drawDateTime` | UTC |
-| `TieBreak` | `drawCutOff` | UTC |
-| `Category` | `drawName` | One of the constants below |
-| `Name`, `Programs` | `drawName`, `drawText2` | English and French |
-| `Invitations`, `MinimumCRS` | `drawSize`, `drawCRS` | |
-| `PoolAsOf` | `drawDistributionAsOn` | Date of the matching `Pool` |
+`Rounds` and `RoundsSince` return a `*Rounds`:
 
-`Draws` and `Pools` are newest first. Each `Pool` is the CRS score
-distribution on one date, with the 451-500 and 401-450 bands split into
-10-point parts. Several rounds share one snapshot, so each date appears once.
+```go
+type Rounds struct {
+	Draws   []Draw  // every readable round, newest first
+	Pools   []Pool  // each CRS pool snapshot once, newest first
+	Issues  []Issue // problems with single rounds, in the order found
+	Version Version // Last-Modified of each file, for RoundsSince
+}
+
+type Draw struct {
+	Number      RoundNumber // "453"; text because of round "91b"
+	Date        Date        // 2026-10-28, a calendar day with no time zone
+	InvitedAt   time.Time   // 2026-10-28T10:34:14Z, UTC
+	Category    Category    // Transport
+	Name        Name        // {EN: "Transport Occupations, 2026-Version 2", FR: "Métiers des transports 2026-Version 2"}
+	Invitations int         // 150
+	MinimumCRS  int         // 477
+	TieBreak    time.Time   // 2026-06-04T21:48:22Z, UTC
+	Programs    Name        // programs the round covered, in English and French
+	PoolAsOf    Date        // 2026-10-25, the matching Pool, or zero
+}
+
+type Pool struct {
+	AsOf  Date   // 2026-10-25
+	Total int    // 228724
+	Bands []Band // 601-1200, 501-600, 451-500, 401-450, 351-400, 301-350, 0-300
+}
+
+type Band struct {
+	Min, Max, Count int
+	Bands           []Band // 10-point parts of 451-500 and 401-450
+}
+```
+
+Fields map to IRCC's keys like this:
+
+| Field | From IRCC |
+| --- | --- |
+| `Number` | `drawNumber` |
+| `Date` | `drawDate` |
+| `InvitedAt` | `drawDateTime` |
+| `TieBreak` | `drawCutOff` |
+| `Category`, `Name` | `drawName` |
+| `Programs` | `drawText2` |
+| `Invitations`, `MinimumCRS` | `drawSize`, `drawCRS` |
+| `PoolAsOf`, `Pool` | `drawDistributionAsOn`, `dd1` to `dd18` |
+
+A time field is the zero `time.Time` when IRCC gives none. Several rounds
+share one pool snapshot, so each date appears once in `Pools`.
 
 Categories: `CEC`, `French`, `PNP`, `Healthcare`, `Trades`, `Transport`,
 `Managers`, `Physicians`, `Military`, `STEM`, `Education`, `General` and
 `Other`. `Category.Name()` gives each one in English and French. A round
 whose name matches none is `Other`, and IRCC's wording stays in `Name`.
 
+## Errors
+
+The call returns an error only when there is nothing useful to return:
+
+| Error | When |
+| --- | --- |
+| `*HTTPError` | The English file answered with a status other than 200 OK. `StatusCode` and `URL` say which. |
+| `ErrUnexpectedFormat` (use `errors.Is`) | The English file isn't JSON, has no rounds, has no round that can be read, or is larger than 16 MB. |
+| `context.Canceled`, `context.DeadlineExceeded` (use `errors.Is`) | The context was cancelled or its deadline passed. |
+| Other errors from `net/http` | The English file couldn't be downloaded at all: a DNS or TLS failure, a dropped connection, or the client's 30-second timeout. |
+
+`Parse` only returns `ErrUnexpectedFormat`. A French file that fails in any
+of these ways is not an error: see `FrenchUnavailable` below.
+
 ## Issues
 
 A problem with one round never fails the call. It is listed in
-`Rounds.Issues`:
+`Rounds.Issues`, with the `Round`, IRCC's `Field` and `Value`, and an `Err`
+that explains it:
 
 | Kind | Meaning |
 | --- | --- |
@@ -85,11 +155,24 @@ A problem with one round never fails the call. It is listed in
 | `Invalid` | A field couldn't be read and is left empty. The round is kept. |
 | `Repaired` | A field had a known typo, such as `"May 31, 2024 at12:48:30 UTC"` or a time with no year, and was read anyway. |
 | `PoolConflict` | Two rounds gave different counts for the same pool date. The earlier round's counts are kept. |
-| `FrenchUnavailable` | The French file couldn't be downloaded or read. Names have English text only. |
+| `FrenchUnavailable` | The French file couldn't be downloaded or read, so names have English text only. With `Round` set, only that French round couldn't be read. |
+| `FrenchOnly` | A round is in the French file but not the English one. It is left out. |
+| `FrenchMismatch` | The two files disagree on a round's `drawDate`, `drawSize`, `drawCRS` or pool counts. The English value is kept. |
 
-`err` is only returned when the English file can't be downloaded
-(`*HTTPError`), isn't a rounds file (`ErrUnexpectedFormat`), or the
-context ends.
+## When English and French disagree
+
+The English values always win, and every disagreement is reported:
+
+- A French round that English doesn't have gives a `FrenchOnly` issue and
+  no draw.
+- A shared round with a different number of invitations, minimum score or
+  pool count gives a `FrenchMismatch` issue for that field. The French text
+  is still used.
+- A shared round with a different `drawDate` is taken to be another round
+  that IRCC numbered wrongly. It gives a `FrenchMismatch` issue, and the
+  round keeps English text only.
+- An English round that French doesn't have yet is not an issue. Its
+  French text is empty.
 
 ## Development
 
