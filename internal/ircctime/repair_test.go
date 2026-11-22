@@ -24,6 +24,8 @@ func TestRepair(t *testing.T) {
 		{"12-hour PM", "June 22, 2021 at 08:19:59 PM UTC", "2021-11-10", time.Date(2021, 6, 22, 20, 19, 59, 0, time.UTC)},
 		{"12-hour midnight", "June 22, 2021 at 12:19:59 AM UTC", "2021-11-10", time.Date(2021, 6, 22, 0, 19, 59, 0, time.UTC)},
 		{"no year, previous year", "December 30 at 09:00:00 UTC", "2022-01-05", time.Date(2021, 12, 30, 9, 0, 0, 0, time.UTC)},
+		{"lowercase pm", "June 22, 2021 at 08:19:59 pm UTC", "2021-11-10", time.Date(2021, 6, 22, 20, 19, 59, 0, time.UTC)},
+		{"no year, leap day", "February 29 at 10:00:00 UTC", "2024-03-01", time.Date(2024, 2, 29, 10, 0, 0, 0, time.UTC)},
 	} {
 		got, ok := Repair(tc.value, tc.drawDate)
 		if !ok || !got.Equal(tc.want) {
@@ -37,6 +39,8 @@ func TestRepairGivesUp(t *testing.T) {
 		{"sometime", "2026-01-01"},
 		{"October 7 at 16:38:21 UTC", ""},
 		{"October 7 at 16:38:21 UTC", "soon"},
+		{"February 29 at 10:00:00 UTC", "2023-03-01"},
+		{"February 29 at 10:00:00 UTC", "2025-01-10"},
 	} {
 		if got, ok := Repair(tc.value, tc.drawDate); ok {
 			t.Errorf("Repair(%q, %q) = %v, want no time", tc.value, tc.drawDate, got)

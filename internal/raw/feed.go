@@ -20,7 +20,7 @@ type Unreadable struct {
 }
 
 func (u *Unreadable) Error() string {
-	return fmt.Sprintf("round %d (%q): %v", u.Index, u.Number, u.Err)
+	return fmt.Sprintf("rounds[%d] (%q): %v", u.Index, u.Number, u.Err)
 }
 
 func (u *Unreadable) Unwrap() error {

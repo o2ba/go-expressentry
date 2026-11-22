@@ -23,6 +23,16 @@ type Round struct {
 	// Pool CRS distribution on DistributionAsOn: Distribution[0] is dd1.
 	DistributionAsOn string     `json:"drawDistributionAsOn"`
 	Distribution     [Bands]Int `json:"-"`
+
+	// BadDistribution lists the ddN fields that aren't counts. The round
+	// still reads; its pool shouldn't be trusted.
+	BadDistribution []BadField `json:"-"`
+}
+
+// BadField is a field whose value couldn't be read.
+type BadField struct {
+	Key   string
+	Value string
 }
 
 // UnmarshalJSON reads the named fields as usual and dd1..dd18 into
@@ -43,7 +53,7 @@ func (r *Round) UnmarshalJSON(b []byte) error {
 			continue
 		}
 		if err := json.Unmarshal(raw, &r.Distribution[i]); err != nil {
-			return fmt.Errorf("%s: %w", key, err)
+			r.BadDistribution = append(r.BadDistribution, BadField{Key: key, Value: string(raw)})
 		}
 	}
 	return nil
