@@ -12,8 +12,8 @@ import (
 	"github.com/o2ba/go-expressentry/internal/clean"
 )
 
-// Two real rounds from IRCC's files (2026-11-15). The French file was a
-// round behind: it has 452 but not 453.
+// Two real rounds from IRCC's files. The French fixture leaves out 453 to
+// cover a round with no French entry.
 const enFile = `{"classes":"wb-tables","rounds":[
 {"drawNumber":"453","drawDate":"2026-10-28","drawDateFull":"October 28, 2026","drawName":"Transport Occupations, 2026-Version 2","drawSize":"150","drawCRS":"477","drawText2":"Federal Skilled Worker Program, Canadian Experience Class and Federal Skilled Trades Program","drawDateTime":"October 28, 2026 at 10:34:14 UTC","drawCutOff":"June 4, 2026 at 21:48:22 UTC","drawDistributionAsOn":"October 25, 2026","dd1":"787","dd2":"20,535","dd3":"71,112","dd4":"12,162","dd5":"12,342","dd6":"16,330","dd7":"15,803","dd8":"14,475","dd9":"63,505","dd10":"13,159","dd11":"13,155","dd12":"12,768","dd13":"12,543","dd14":"11,880","dd15":"47,911","dd16":"17,247","dd17":"7,627","dd18":"228,724"},
 {"drawNumber":"452","drawDate":"2026-10-27","drawDateFull":"October 27, 2026","drawName":"French-Language proficiency 2026-Version 2","drawSize":"5,000","drawCRS":"407","drawText2":"Federal Skilled Worker Program, Canadian Experience Class and Federal Skilled Trades Program","drawDateTime":"October 27, 2026 at 10:17:26 UTC","drawCutOff":"July 13, 2026 at 19:22:00 UTC","drawDistributionAsOn":"October 25, 2026","dd1":"787","dd2":"20,535","dd3":"71,112","dd4":"12,162","dd5":"12,342","dd6":"16,330","dd7":"15,803","dd8":"14,475","dd9":"63,505","dd10":"13,159","dd11":"13,155","dd12":"12,768","dd13":"12,543","dd14":"11,880","dd15":"47,911","dd16":"17,247","dd17":"7,627","dd18":"228,724"}
@@ -338,5 +338,26 @@ func TestUnreadableFrenchRound(t *testing.T) {
 	}
 	if len(r.Issues) != 1 || r.Issues[0].Kind != FrenchUnavailable || r.Issues[0].Round != "8" {
 		t.Errorf("issues = %v", r.Issues)
+	}
+}
+
+func TestInstructionsLinks(t *testing.T) {
+	const dir = "/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds/"
+	r := mustParse(t, `{"rounds":[
+		{"drawNumber":"453","drawDate":"2026-10-28","drawName":"Canadian Experience Class","drawNumberURL":"<a href='/content/canadasite/en`+dir+`invitations.html?q=453'>453</a>"},
+		{"drawNumber":"1","drawDate":"2015-01-31","drawName":"No Program Specified","drawNumberURL":"<a href='/en`+dir+`invitations-1.html'>1</a>"},
+		{"drawNumber":"0","drawDate":"2015-01-01","drawName":"No Program Specified","drawNumberURL":"0"}]}`,
+		`{"rounds":[{"drawNumber":"453","drawNumberURL":"<a href='/content/canadasite/fr/entree-express/invitations.html?q=453'>453</a>"}]}`)
+	for _, tc := range []struct {
+		draw Draw
+		want Links
+	}{
+		{r.Draws[0], Links{EN: "https://www.canada.ca/en" + dir + "invitations.html?q=453", FR: "https://www.canada.ca/fr/entree-express/invitations.html?q=453"}},
+		{r.Draws[1], Links{EN: "https://www.canada.ca/en" + dir + "invitations-1.html"}},
+		{r.Draws[2], Links{}},
+	} {
+		if tc.draw.Instructions != tc.want {
+			t.Errorf("round %s: Instructions = %+v, want %+v", tc.draw.Number, tc.draw.Instructions, tc.want)
+		}
 	}
 }

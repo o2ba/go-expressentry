@@ -1,0 +1,43 @@
+name: Live
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: Parse IRCC's live files
+        run: go test -run '^TestLive$' -v . 2>&1 | tee live.log; exit "${PIPESTATUS[0]}"
+        env:
+          EXPRESSENTRY_LIVE: '1'
+      - name: Open or update an issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Live rounds files no longer parse cleanly"
+          {
+            echo "The weekly live check failed: $RUN_URL"
+            echo
+            echo '```'
+            tail -n 60 live.log
+            echo '```'
+          } > body.md
+          number=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file body.md
+          else
+            gh issue create --title "$title" --body-file body.md
+          fi
