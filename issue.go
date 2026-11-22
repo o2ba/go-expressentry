@@ -26,9 +26,9 @@ const (
 	// which rounds exist.
 	FrenchOnly
 	// FrenchMismatch: a round's French entry gives Field a different Value
-	// from the English one. Pool counts that differ come in one issue. The English value is kept. When the dates
-	// differ, the French entry is taken to be another round and its text
-	// isn't used.
+	// from the English one. The English value is kept, and pool counts
+	// that differ come in one issue. When the dates differ, the French
+	// entry is taken to be another round and its text isn't used.
 	FrenchMismatch
 )
 
