@@ -220,7 +220,7 @@ Some mistakes in past rounds can't be repaired by a rule: the broken
 French link for round 149, and the English link for round 34, whose page
 doesn't exist on canada.ca (that one is dropped, leaving
 `Instructions.EN` empty). They're fixed by hand in a list inside
-the package (`internal/corrections`). A correction applies only while
+the package (`internal/corrections/list.go`). A correction applies only while
 IRCC's value is still exactly the wrong one, so it stops on its own once
 IRCC fixes or edits the field. Each one gives a `Repaired` issue. To add
 one, open a pull request with the round, the field, the value as IRCC
