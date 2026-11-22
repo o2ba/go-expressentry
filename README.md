@@ -63,9 +63,8 @@ server.
 
 **The English file is the source of truth.** It decides which rounds exist
 and gives every number, date and category. The French file only adds the
-French text of `Name` and `Programs`, matched by round number. The French
-file often lags a round behind, so the newest round may have no French text
-for a while.
+French text of `Name` and `Programs`, matched by round number. A round the
+French file doesn't have gets empty French text.
 
 ## What you get
 
