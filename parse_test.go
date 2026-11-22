@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/o2ba/go-expressentry/internal/clean"
 )
 
 // Two real rounds from IRCC's files (2026-11-15). The French file was a
@@ -105,6 +107,7 @@ func TestParseRejectsEnglish(t *testing.T) {
 		"html":      `<html>blocked</html>`,
 		"no rounds": `{"rounds":[]}`,
 		"all bad":   `{"rounds":[{"drawSize":"about 5k"}]}`,
+		"no number": `{"rounds":[{"drawSize":"5"}]}`,
 	} {
 		if _, err := Parse([]byte(body), nil); !errors.Is(err, ErrUnexpectedFormat) {
 			t.Errorf("%s: err = %v, want ErrUnexpectedFormat", name, err)
@@ -248,6 +251,32 @@ func TestPoolConflictKeepsEarliestRound(t *testing.T) {
 	for _, d := range r.Draws {
 		if d.PoolAsOf != (Date{2026, time.March, 3}) {
 			t.Errorf("round %s PoolAsOf = %v", d.Number, d.PoolAsOf)
+		}
+	}
+}
+
+func TestBadCountKeepsRoundWithoutPool(t *testing.T) {
+	r := mustParse(t, `{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Canadian Experience Class","drawDistributionAsOn":"January 1, 2026","dd3":"lots","dd18":"5"}]}`, "")
+	if len(r.Draws) != 1 || !r.Draws[0].PoolAsOf.IsZero() || len(r.Pools) != 0 {
+		t.Fatalf("draws = %+v, pools = %v", r.Draws, r.Pools)
+	}
+	if len(r.Issues) != 1 || r.Issues[0].Kind != Invalid || r.Issues[0].Field != "dd3" {
+		t.Errorf("issues = %v", r.Issues)
+	}
+}
+
+func TestRepeatedFrenchRoundKeepsFirst(t *testing.T) {
+	r := mustParse(t, `{"rounds":[{"drawNumber":"9","drawDate":"2026-01-01","drawName":"Canadian Experience Class"}]}`,
+		`{"rounds":[{"drawNumber":"9","drawName":"premier"},{"drawNumber":"9","drawName":"second"}]}`)
+	if got := r.Draws[0].Name.FR; got != "premier" {
+		t.Errorf("Name.FR = %q, want premier", got)
+	}
+}
+
+func TestCleanCategoriesAreValid(t *testing.T) {
+	for _, id := range clean.Categories() {
+		if !Category(id).Valid() {
+			t.Errorf("clean returns %q, which isn't a valid Category", id)
 		}
 	}
 }

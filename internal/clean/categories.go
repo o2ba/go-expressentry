@@ -38,8 +38,18 @@ func Category(name string) string {
 	return "other"
 }
 
+// Categories lists every ID Category can return.
+func Categories() []string {
+	out := make([]string, 0, len(rules)+1)
+	for _, r := range rules {
+		out = append(out, r.category)
+	}
+	return append(out, "other")
+}
+
 // containsWord reports whether w appears in s starting at a word boundary,
-// so "stem" doesn't match "system".
+// so "stem" doesn't match "system". The end is left open on purpose, so
+// "trade" matches "Trades" and "physician" matches "Physicians".
 func containsWord(s, w string) bool {
 	for i := 0; ; {
 		j := strings.Index(s[i:], w)

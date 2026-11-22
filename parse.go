@@ -3,7 +3,6 @@ package expressentry
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"time"
 
@@ -32,11 +31,17 @@ func Parse(en, fr []byte) (*Rounds, error) {
 			p.issue(Issue{Kind: FrenchUnavailable, Err: err})
 		} else {
 			for _, r := range frFeed.Rounds {
-				french[string(r.DrawNumber)] = r
+				if _, ok := french[string(r.DrawNumber)]; !ok {
+					french[string(r.DrawNumber)] = r
+				}
 			}
 		}
 	}
-	return p.rounds(enFeed, french), nil
+	out := p.rounds(enFeed, french)
+	if len(out.Draws) == 0 {
+		return nil, fmt.Errorf("%w: English file: no round has a number", ErrUnexpectedFormat)
+	}
+	return out, nil
 }
 
 type parser struct {
@@ -141,6 +146,12 @@ func (p *parser) pool(r raw.Round) (Pool, bool) {
 	if r.DistributionAsOn == "" {
 		return Pool{}, false
 	}
+	if len(r.BadDistribution) > 0 {
+		for _, b := range r.BadDistribution {
+			p.issue(Issue{Kind: Invalid, Round: RoundNumber(r.DrawNumber), Field: b.Key, Value: b.Value, Err: errors.New("not a count")})
+		}
+		return Pool{}, false
+	}
 	day, ok := ircctime.Day(r.DistributionAsOn)
 	if !ok {
 		p.issue(Issue{Kind: Invalid, Round: RoundNumber(r.DrawNumber), Field: "drawDistributionAsOn", Value: r.DistributionAsOn, Err: errors.New("not a date")})
@@ -184,7 +195,7 @@ func (p *parser) keepPool(pools map[Date]pooled, round, asOf string, pool Pool) 
 		pools[pool.AsOf] = pooled{round: round, pool: pool}
 		return
 	}
-	if !reflect.DeepEqual(first.pool, pool) {
+	if !samePool(first.pool, pool) {
 		p.issue(Issue{
 			Kind:  PoolConflict,
 			Round: RoundNumber(round),
@@ -193,4 +204,14 @@ func (p *parser) keepPool(pools map[Date]pooled, round, asOf string, pool Pool) 
 			Err:   fmt.Errorf("pool differs from round %s's, which was kept", first.round),
 		})
 	}
+}
+
+func samePool(a, b Pool) bool {
+	return a.AsOf == b.AsOf && a.Total == b.Total && sameBands(a.Bands, b.Bands)
+}
+
+func sameBands(a, b []Band) bool {
+	return slices.EqualFunc(a, b, func(x, y Band) bool {
+		return x.Min == y.Min && x.Max == y.Max && x.Count == y.Count && sameBands(x.Bands, y.Bands)
+	})
 }

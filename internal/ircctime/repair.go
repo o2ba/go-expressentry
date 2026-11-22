@@ -3,6 +3,7 @@ package ircctime
 import (
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -42,9 +43,9 @@ func meridiem(m []string) string {
 	hour, _ := strconv.Atoi(m[1])
 	if hour <= 12 {
 		switch {
-		case (m[3] == "PM" || m[3] == "pm") && hour < 12:
+		case strings.EqualFold(m[3], "pm") && hour < 12:
 			hour += 12
-		case (m[3] == "AM" || m[3] == "am") && hour == 12:
+		case strings.EqualFold(m[3], "am") && hour == 12:
 			hour = 0
 		}
 	}
@@ -73,9 +74,16 @@ func Repair(s, drawDate string) (time.Time, bool) {
 	if err != nil {
 		return time.Time{}, false
 	}
-	t = t.AddDate(draw.Year(), 0, 0)
-	if t.After(draw.AddDate(0, 0, 1)) {
-		t = t.AddDate(-1, 0, 0)
+	t, ok := inYear(t, draw.Year())
+	if ok && t.After(draw.AddDate(0, 0, 1)) {
+		t, ok = inYear(t, draw.Year()-1)
 	}
-	return t, true
+	return t, ok
+}
+
+// inYear moves t to year, and fails when that day doesn't exist then
+// (February 29 outside a leap year).
+func inYear(t time.Time, year int) (time.Time, bool) {
+	moved := time.Date(year, t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
+	return moved, moved.Month() == t.Month() && moved.Day() == t.Day()
 }
