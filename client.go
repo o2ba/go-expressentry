@@ -82,10 +82,3 @@ func (c *Client) Rounds(ctx context.Context) (*Rounds, error) {
 func (c *Client) RoundsSince(ctx context.Context, v Version) (r *Rounds, changed bool, err error) {
 	return nil, false, ErrNotImplemented
 }
-
-// Parse reads the English and French rounds files. fr may be nil, and every
-// [Name] then has only its English text. Rounds are matched across the two
-// files by their round number.
-func Parse(en, fr []byte) (*Rounds, error) {
-	return nil, ErrNotImplemented
-}

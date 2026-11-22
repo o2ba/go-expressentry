@@ -17,8 +17,8 @@ go get github.com/o2ba/go-expressentry
 
 Requires Go 1.24 or later.
 
-> Work in progress: the API is defined, the parser isn't in yet. `Rounds`
-> and `Parse` return `ErrNotImplemented`.
+> Work in progress: `Parse` works; `Client.Rounds` and `RoundsSince` return
+> `ErrNotImplemented` until the HTTP client lands.
 
 ## Usage
 

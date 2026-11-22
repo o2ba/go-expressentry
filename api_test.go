@@ -2,6 +2,7 @@ package expressentry
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -77,9 +78,16 @@ func TestDateJSON(t *testing.T) {
 	}
 }
 
-func TestIssueString(t *testing.T) {
+func TestIssueStringRound(t *testing.T) {
 	i := Issue{Kind: Repaired, Round: "453", Field: "drawCutOff", Value: "x"}
 	if got := i.String(); got != `round 453: repaired drawCutOff "x"` {
+		t.Errorf("String() = %s", got)
+	}
+}
+
+func TestIssueStringFile(t *testing.T) {
+	i := Issue{Kind: FrenchUnavailable, Err: errors.New("no rounds")}
+	if got := i.String(); got != "French unavailable: no rounds" {
 		t.Errorf("String() = %s", got)
 	}
 }

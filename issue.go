@@ -17,6 +17,9 @@ const (
 	// PoolConflict: two rounds gave different numbers for the same pool
 	// snapshot. The earlier round's numbers are kept.
 	PoolConflict
+	// FrenchUnavailable: the French file couldn't be read, so every [Name]
+	// has only its English text. Round is empty.
+	FrenchUnavailable
 )
 
 func (k IssueKind) String() string {
@@ -29,6 +32,8 @@ func (k IssueKind) String() string {
 		return "repaired"
 	case PoolConflict:
 		return "pool conflict"
+	case FrenchUnavailable:
+		return "French unavailable"
 	default:
 		return fmt.Sprintf("IssueKind(%d)", int(k))
 	}
@@ -47,7 +52,10 @@ type Issue struct {
 }
 
 func (i Issue) String() string {
-	s := fmt.Sprintf("round %s: %s", i.Round, i.Kind)
+	s := i.Kind.String()
+	if i.Round != "" {
+		s = fmt.Sprintf("round %s: %s", i.Round, i.Kind)
+	}
 	if i.Field != "" {
 		s += fmt.Sprintf(" %s %q", i.Field, i.Value)
 	}
