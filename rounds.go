@@ -72,7 +72,8 @@ type Band struct {
 }
 
 // Name is text in English and French. FR is empty when the French file has
-// no entry for the round or couldn't be read.
+// no entry for the round or couldn't be read, or when its entry has another
+// date (reported as [FrenchMismatch]).
 type Name struct {
 	EN string
 	FR string
