@@ -44,6 +44,10 @@ type Draw struct {
 	TieBreak time.Time
 	// Programs names the programs the round covered.
 	Programs Name
+	// Instructions links to the round's ministerial instructions on
+	// canada.ca, in English and French. Either is empty when IRCC gives no
+	// link.
+	Instructions Links
 	// PoolAsOf is the date of the [Pool] snapshot published with this round,
 	// or the zero Date when there is none.
 	PoolAsOf Date
@@ -69,6 +73,12 @@ type Band struct {
 	Max   int
 	Count int
 	Bands []Band
+}
+
+// Links holds a page's English and French URLs.
+type Links struct {
+	EN string
+	FR string
 }
 
 // Name is text in English and French. FR is empty when the French file has

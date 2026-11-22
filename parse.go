@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -199,12 +201,13 @@ func (p *parser) frenchOnly(french map[string]raw.Round, english map[string]bool
 func (p *parser) draw(en, fr raw.Round) Draw {
 	n := RoundNumber(en.DrawNumber)
 	d := Draw{
-		Number:      n,
-		Category:    Category(clean.Category(en.DrawName)),
-		Name:        Name{EN: en.DrawName, FR: fr.DrawName},
-		Invitations: int(en.DrawSize),
-		MinimumCRS:  int(en.DrawCRS),
-		Programs:    Name{EN: en.DrawText2, FR: fr.DrawText2},
+		Number:       n,
+		Category:     Category(clean.Category(en.DrawName)),
+		Name:         Name{EN: en.DrawName, FR: fr.DrawName},
+		Invitations:  int(en.DrawSize),
+		MinimumCRS:   int(en.DrawCRS),
+		Programs:     Name{EN: en.DrawText2, FR: fr.DrawText2},
+		Instructions: Links{EN: link(en.DrawNumberURL), FR: link(fr.DrawNumberURL)},
 	}
 	if date, err := ParseDate(en.DrawDate); err == nil {
 		d.Date = date
@@ -309,3 +312,26 @@ func sameBands(a, b []Band) bool {
 		return x.Min == y.Min && x.Max == y.Max && x.Count == y.Count && sameBands(x.Bands, y.Bands)
 	})
 }
+
+var hrefPattern = regexp.MustCompile(`href=['"]([^'"]+)['"]`)
+
+// link takes the URL out of one of IRCC's HTML anchors and makes it
+// absolute. Newer rounds link through the site's internal /content/canadasite
+// path, which canada.ca redirects to the public one.
+func link(anchor string) string {
+	m := hrefPattern.FindStringSubmatch(anchor)
+	if m == nil {
+		return ""
+	}
+	u, err := url.Parse(m[1])
+	if err != nil {
+		return ""
+	}
+	u = canadaCA.ResolveReference(u)
+	if u.Host == canadaCA.Host {
+		u.Path = strings.TrimPrefix(u.Path, "/content/canadasite")
+	}
+	return u.String()
+}
+
+var canadaCA = &url.URL{Scheme: "https", Host: "www.canada.ca", Path: "/"}

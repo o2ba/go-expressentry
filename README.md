@@ -112,7 +112,8 @@ numbers. This is round 453 in the English file, cut down:
 | `drawSize`, `drawCRS` | Invitations and the lowest score invited, with thousands separators: `"5,000"` in English, `"5 000"` in French. |
 | `drawDistributionAsOn` | The date of the pool snapshot published with the round, written out. |
 | `dd1` to `dd18` | Profiles in the pool by score: `dd1` 601-1200, `dd2` 501-600, `dd3` 451-500 split into `dd4` to `dd8` (10 points each, highest first), `dd9` 401-450 split into `dd10` to `dd14`, `dd15` 351-400, `dd16` 301-350, `dd17` 0-300 and `dd18` the total. Early rounds have `"0"` everywhere. |
-| `drawNumberURL`, `mitext`, `DrawText1` | HTML links to the round's ministerial instructions. Not read. |
+| `drawNumberURL` | An HTML link to the round's ministerial instructions: `invitations.html?q=453` for newer rounds, a page of its own such as `invitations-1.html` for old ones. Newer rounds use the site's internal `/content/canadasite` path, which canada.ca redirects. Read into `Instructions` as an absolute public URL. |
+| `mitext`, `DrawText1` | The same link with other text. Not read. IRCC's own links have mistakes: in round 65 these two point to round 64's page, and the French link for round 149 is broken (`invitations-14.html9`). Links are passed on as published. |
 
 The times are typed by hand and vary: ordinal suffixes
 (`"1st"`), doubled spaces, a missing `UTC`, and in old rounds typos such as
@@ -132,22 +133,27 @@ type Rounds struct {
 }
 
 type Draw struct {
-	Number      RoundNumber // "453"; text because of round "91b"
-	Date        Date        // 2026-10-28, a calendar day with no time zone
-	InvitedAt   time.Time   // 2026-10-28T10:34:14Z, UTC
-	Category    Category    // Transport
-	Name        Name        // {EN: "Transport Occupations, 2026-Version 2", FR: "Métiers des transports 2026-Version 2"}
-	Invitations int         // 150
-	MinimumCRS  int         // 477
-	TieBreak    time.Time   // 2026-06-04T21:48:22Z, UTC
-	Programs    Name        // programs the round covered, in English and French
-	PoolAsOf    Date        // 2026-10-25, the matching Pool, or zero
+	Number       RoundNumber // "453"; text because of round "91b"
+	Date         Date        // 2026-10-28, a calendar day with no time zone
+	InvitedAt    time.Time   // 2026-10-28T10:34:14Z, UTC
+	Category     Category    // Transport
+	Name         Name        // {EN: "Transport Occupations, 2026-Version 2", FR: "Métiers des transports 2026-Version 2"}
+	Invitations  int         // 150
+	MinimumCRS   int         // 477
+	TieBreak     time.Time   // 2026-06-04T21:48:22Z, UTC
+	Programs     Name        // programs the round covered, in English and French
+	Instructions Links       // {EN: "https://www.canada.ca/en/.../invitations.html?q=453", FR: "https://www.canada.ca/fr/..."}
+	PoolAsOf     Date        // 2026-10-25, the matching Pool, or zero
 }
 
 type Pool struct {
 	AsOf  Date   // 2026-10-25
 	Total int    // 228724
 	Bands []Band // 601-1200, 501-600, 451-500, 401-450, 351-400, 301-350, 0-300
+}
+
+type Links struct {
+	EN, FR string // absolute canada.ca URLs
 }
 
 type Band struct {
@@ -166,6 +172,7 @@ Fields map to IRCC's keys like this:
 | `TieBreak` | `drawCutOff` |
 | `Category`, `Name` | `drawName` |
 | `Programs` | `drawText2` |
+| `Instructions` | the link in `drawNumberURL` |
 | `Invitations`, `MinimumCRS` | `drawSize`, `drawCRS` |
 | `PoolAsOf`, `Pool` | `drawDistributionAsOn`, `dd1` to `dd18` |
 

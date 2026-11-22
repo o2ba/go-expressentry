@@ -340,3 +340,24 @@ func TestUnreadableFrenchRound(t *testing.T) {
 		t.Errorf("issues = %v", r.Issues)
 	}
 }
+
+func TestInstructionsLinks(t *testing.T) {
+	const dir = "/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds/"
+	r := mustParse(t, `{"rounds":[
+		{"drawNumber":"453","drawDate":"2026-10-28","drawName":"Canadian Experience Class","drawNumberURL":"<a href='/content/canadasite/en`+dir+`invitations.html?q=453'>453</a>"},
+		{"drawNumber":"1","drawDate":"2015-01-31","drawName":"No Program Specified","drawNumberURL":"<a href='/en`+dir+`invitations-1.html'>1</a>"},
+		{"drawNumber":"0","drawDate":"2015-01-01","drawName":"No Program Specified","drawNumberURL":"0"}]}`,
+		`{"rounds":[{"drawNumber":"453","drawNumberURL":"<a href='/content/canadasite/fr/entree-express/invitations.html?q=453'>453</a>"}]}`)
+	for _, tc := range []struct {
+		draw Draw
+		want Links
+	}{
+		{r.Draws[0], Links{EN: "https://www.canada.ca/en" + dir + "invitations.html?q=453", FR: "https://www.canada.ca/fr/entree-express/invitations.html?q=453"}},
+		{r.Draws[1], Links{EN: "https://www.canada.ca/en" + dir + "invitations-1.html"}},
+		{r.Draws[2], Links{}},
+	} {
+		if tc.draw.Instructions != tc.want {
+			t.Errorf("round %s: Instructions = %+v, want %+v", tc.draw.Number, tc.draw.Instructions, tc.want)
+		}
+	}
+}

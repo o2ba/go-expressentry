@@ -18,7 +18,9 @@ type Round struct {
 	DrawSize     Int        `json:"drawSize"`     // invitations
 	DrawCRS      Int        `json:"drawCRS"`      // lowest CRS score invited
 	DrawText2    string     `json:"drawText2"`    // programs covered
-	DrawCutOff   string     `json:"drawCutOff"`   // tie-break timestamp
+
+	DrawNumberURL string `json:"drawNumberURL"` // HTML link to the ministerial instructions
+	DrawCutOff    string `json:"drawCutOff"`    // tie-break timestamp
 
 	// Pool CRS distribution on DistributionAsOn: Distribution[0] is dd1.
 	DistributionAsOn string     `json:"drawDistributionAsOn"`
