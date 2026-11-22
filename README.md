@@ -239,6 +239,23 @@ The English values always win, and every disagreement is reported:
 - An English round that French doesn't have yet is not an issue. Its
   French text is empty.
 
+## Compatibility
+
+The package follows [semantic versioning](https://go.dev/doc/modules/version-numbers).
+Expect additive changes in minor releases:
+
+- new fields on `Draw`, `Pool` and the other types
+- new `IssueKind`s, so a `switch` on `Kind` should have a `default` case
+- new categories, so treat an unknown `Category` like `Other`
+- more `Repaired` issues as new typos or corrections are handled
+
+Don't compare these types with `==` or build them with unkeyed struct
+literals, since a new field breaks both. Renaming or removing anything, or
+changing what a field means, waits for a new major version with its own
+import path (`github.com/o2ba/go-expressentry/v2`). A program can import both
+majors side by side and move over at its own pace. Before v1.0.0, a breaking
+change can come in a minor release and is listed in its release notes.
+
 ## Development
 
 ```sh
