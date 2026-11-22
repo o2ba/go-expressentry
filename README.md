@@ -113,7 +113,7 @@ numbers. This is round 453 in the English file, cut down:
 | `drawDistributionAsOn` | The date of the pool snapshot published with the round, written out. |
 | `dd1` to `dd18` | Profiles in the pool by score: `dd1` 601-1200, `dd2` 501-600, `dd3` 451-500 split into `dd4` to `dd8` (10 points each, highest first), `dd9` 401-450 split into `dd10` to `dd14`, `dd15` 351-400, `dd16` 301-350, `dd17` 0-300 and `dd18` the total. Early rounds have `"0"` everywhere. |
 | `drawNumberURL` | An HTML link to the round's ministerial instructions: `invitations.html?q=453` for newer rounds, a page of its own such as `invitations-1.html` for old ones. Newer rounds use the site's internal `/content/canadasite` path, which canada.ca redirects. Read into `Instructions` as an absolute public URL. |
-| `mitext`, `DrawText1` | The same link with other text. Not read. IRCC's own links have mistakes: in round 65 these two point to round 64's page, and the French link for round 149 is broken (`invitations-14.html9`). Links are passed on as published. |
+| `mitext`, `DrawText1` | The same link with other text. Not read. IRCC's own links have mistakes: in round 65 these two point to round 64's page, and the French link for round 149 is broken (`invitations-14.html9`); that one is corrected (see below). |
 
 The times are typed by hand and vary: ordinal suffixes
 (`"1st"`), doubled spaces, a missing `UTC`, and in old rounds typos such as
@@ -208,11 +208,21 @@ that explains it:
 | --- | --- |
 | `Unreadable` | The round couldn't be read, or its number was missing or repeated. It is left out. |
 | `Invalid` | A field couldn't be read and is left empty. The round is kept. |
-| `Repaired` | A field had a known typo, such as `"May 31, 2024 at12:48:30 UTC"` or a time with no year, and was read anyway. |
+| `Repaired` | A field had a known typo, such as `"May 31, 2024 at12:48:30 UTC"` or a time with no year, and was read anyway, or a past mistake was corrected by hand. `Value` is IRCC's original text. |
 | `PoolConflict` | Two rounds gave different counts for the same pool date. The earlier round's counts are kept. |
 | `FrenchUnavailable` | The French file couldn't be downloaded or read, so names have English text only. With `Round` set, only that French round couldn't be read. |
 | `FrenchOnly` | A round is in the French file but not the English one. It is left out. |
 | `FrenchMismatch` | The two files disagree on a round's `drawDate`, `drawSize`, `drawCRS` or pool counts. The English value is kept, and all differing pool counts of a round come in one issue. |
+
+## Corrections
+
+Some mistakes in past rounds can't be repaired by a rule, such as the
+broken French link for round 149. They're fixed by hand in a list inside
+the package (`internal/corrections`). A correction applies only while
+IRCC's value is still exactly the wrong one, so it stops on its own once
+IRCC fixes or edits the field. Each one gives a `Repaired` issue. To add
+one, open a pull request with the round, the field, the value as IRCC
+published it, and the right value.
 
 ## When English and French disagree
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/o2ba/go-expressentry/internal/clean"
+	"github.com/o2ba/go-expressentry/internal/corrections"
 )
 
 // Two real rounds from IRCC's files. The French fixture leaves out 453 to
@@ -359,5 +360,17 @@ func TestInstructionsLinks(t *testing.T) {
 		if tc.draw.Instructions != tc.want {
 			t.Errorf("round %s: Instructions = %+v, want %+v", tc.draw.Number, tc.draw.Instructions, tc.want)
 		}
+	}
+}
+
+func TestKnownCorrectionIsApplied(t *testing.T) {
+	c := corrections.All[0]
+	r := mustParse(t, `{"rounds":[{"drawNumber":"149","drawDate":"2020-05-27","drawName":"Canadian Experience Class"}]}`,
+		fmt.Sprintf(`{"rounds":[{"drawNumber":"149","drawNumberURL":%q}]}`, c.Wrong))
+	if got := r.Draws[0].Instructions.FR; !strings.HasSuffix(got, "/invitations-149.html") {
+		t.Errorf("Instructions.FR = %q", got)
+	}
+	if len(r.Issues) != 1 || r.Issues[0].Kind != Repaired || r.Issues[0].Field != "drawNumberURL" || r.Issues[0].Value != c.Wrong {
+		t.Errorf("issues = %v", r.Issues)
 	}
 }
